@@ -1,0 +1,4 @@
+# Ignore everything but .gitignore file
+*.*
+!.gitignore
+!blank_example.json

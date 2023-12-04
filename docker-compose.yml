@@ -1,0 +1,14 @@
+version: "3.5"
+
+services:
+  gve_devnet_meraki_mx_security_baseline:
+    image: ghcr.io/gve-sw/gve_devnet_meraki_mx_security_baseline:latest
+#    build: . (local docker file build)
+    container_name: gve_devnet_meraki_mx_security_baseline
+    environment:
+      - MERAKI_API_KEY=${MERAKI_API_KEY}
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./flask_app:/app
+    restart: "always"

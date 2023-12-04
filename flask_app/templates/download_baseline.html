@@ -1,0 +1,327 @@
+{% extends "masterPage.html" %}
+
+{% block content %}
+<div class="container-fluid base-margin-top">
+    <h5 class="display-5">Download MX Configuration</h5>
+    <hr>
+    <div class="row">
+    <!-- Left Rail -->
+    <div class="col-xl-3 col-md-4">
+        <div class="section">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <h2 class="subtitle">Step 1: Choose Context</h2>
+                <div class="section">
+
+                    <!-- Organization and Network Select Form -->
+                    <form action="/download_baseline" method="POST">
+                        <div class="form-group base-margin-bottom">
+                            <div class="form-group__text select">
+                                <select name="organizations_select" id="organizations_select">
+                                    <option disabled selected hidden value="">Please choose...</option>
+                                    {% for orga in dropdown_content %}
+                                    <option value="{{ orga.orgaid }}" {% if selected_elements.organization == orga.orgaid %} selected {% endif %}>
+                                        {{ orga.organame }} (ID: {{ orga.orgaid }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <label for="organizations_select">Organization*</label>
+                            </div>
+                        </div>
+
+                        {% for orga in dropdown_content %}
+                        <div id="{{ orga.orgaid }}" class="network-select" {% if selected_elements.organization != orga.orgaid %} hidden {% endif %}>
+                            <div class="form-group base-margin-bottom">
+                                <div class="form-group__text select">
+                                    <select name="networks_select" class="networks">
+                                        <option disabled selected hidden value="">Please choose...</option>
+                                        {% for network in orga.networks %}
+                                        <option value="{{ network.networkid }}" {% if selected_elements.network_id == network.networkid %} selected {% endif %}>
+                                            {{ network.networkname }} (ID: {{ network.networkid }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <label for="networks_select">Network*</label>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        <input type="hidden" name="form_type" value="context_form">
+
+                        <span class="required-label pull-right">* required fields</span>
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Middle Rail -->
+    <div class="col-xl-6 col-md-4">
+        <div class="section">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <h2 class="subtitle">
+                    Selected L3 Outbound Rules
+                    <span style="{% if tracked_settings['mx_l3_outbound_firewall'] %}color: green; display: inline;{% else %}color: red; display: inline;{% endif %}">
+                        {% if tracked_settings['mx_l3_outbound_firewall'] %}(Included){% else %}(Ignored){% endif %}
+                    </span>
+                </h2>
+                <div class="help-block" role="alert">
+                    <span>Note: Rules are not in order!</span>
+                </div>
+                <div class="section">
+                    <div class="responsive-table">
+                        <table class="table table--lined table--wrapped" id="l3OutboundTable">
+                            <thead>
+                                <tr>
+                                    <th class="hidden-md-down">Policy</th>
+                                    <th class="hidden-md-down">Protocol</th>
+                                    <th class="hidden-md-down">Source Port</th>
+                                    <th class="hidden-md-down">Source Address</th>
+                                    <th class="hidden-md-down">Destination Port</th>
+                                    <th class="hidden-md-down">Destination Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if current_config is not none %}
+                                    {% for rule in current_config.l3OutRules.rules %}
+                                    <tr>
+                                        <td class="hidden-md-down">{{ rule.policy }}</td>
+                                        <td class="hidden-md-down">{{ rule.protocol }}</td>
+                                        <td class="hidden-md-down">{{ rule.srcPort }}</td>
+                                        <td class="hidden-md-down">{{ rule.srcCidr }}</td>
+                                        <td class="hidden-md-down">{{ rule.destPort }}</td>
+                                        <td class="hidden-md-down">{{ rule.destCidr }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <h2 class="subtitle">
+                    Selected L7 Rules
+                    <span style="{% if tracked_settings['mx_l7_firewall'] %}color: green; display: inline;{% else %}color: red; display: inline;{% endif %}">
+                        {% if tracked_settings['mx_l7_firewall'] %}(Included){% else %}(Ignored){% endif %}
+                    </span>
+                </h2>
+                <div class="help-block" role="alert">
+                    <span>Note: Rules are not in order!</span>
+                </div>
+                <div class="section">
+                    <div class="responsive-table">
+                        <table class="table table--lined table--wrapped" id="l7Table">
+                            <thead>
+                                <tr>
+                                    <th class="hidden-md-down">Policy</th>
+                                    <th class="hidden-md-down">Type</th>
+                                    <th class="hidden-md-down">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if current_config is not none %}
+                                    {% for rule in current_config.l7Rules.rules %}
+                                    <tr>
+                                        <td class="hidden-md-down">{{ rule.policy }}</td>
+                                        <td class="hidden-md-down">{{ rule.type }}</td>
+                                        <td class="hidden-md-down">{{ rule.value }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <h2 class="subtitle">
+                    Selected Category Blocking
+                    <span style="{% if tracked_settings['mx_content_rules'] %}color: green; display: inline;{% else %}color: red; display: inline;{% endif %}">
+                        {% if tracked_settings['mx_content_rules'] %}(Included){% else %}(Ignored){% endif %}
+                    </span>
+                </h2>
+                <div class="section">
+                    <div class="responsive-table">
+                        <table class="table table--lined table--wrapped" id="catBlocking">
+                            <thead>
+                                <tr>
+                                    <th class="hidden-md-down">Policy</th>
+                                    <th class="hidden-md-down">Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if current_config is not none %}
+                                    {% for rule in current_config.contentRules.blockedUrlCategories %}
+                                    <tr>
+                                        <td class="hidden-md-down">Block</td>
+                                        <td class="hidden-md-down">{{ rule.name }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <h2 class="subtitle">
+                    Selected URL Filtering
+                    <span style="{% if tracked_settings['mx_content_rules'] %}color: green; display: inline;{% else %}color: red; display: inline;{% endif %}">
+                        {% if tracked_settings['mx_content_rules'] %}(Included){% else %}(Ignored){% endif %}
+                    </span>
+                </h2>
+                <div class="section">
+                    <div class="responsive-table">
+                        <table class="table table--lined table--wrapped" id="urlFiltering">
+                            <thead>
+                                <tr>
+                                    <th class="hidden-md-down">Policy</th>
+                                    <th class="hidden-md-down">URL</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if current_config is not none %}
+                                    {% for rule in current_config.contentRules.blockedUrlPatterns %}
+                                    <tr>
+                                        <td class="hidden-md-down">Block</td>
+                                        <td class="hidden-md-down">{{ rule }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% for rule in current_config.contentRules.allowedUrlPatterns %}
+                                    <tr>
+                                        <td class="hidden-md-down">Allow</td>
+                                        <td class="hidden-md-down">{{ rule }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Rail -->
+    <div class="col-xl-3 col-md-4">
+        <div class="section">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <h2 class="subtitle">Step 2: Download Config!</h2>
+
+                <form action="/download_baseline" method="POST" name="download">
+                    <!-- Hidden Org and Network field to pass data from the first form -->
+                    <input type="hidden" name="organizations_select" value="{{ request.form.organizations_select }}">
+                    <input type="hidden" name="networks_select" value="{{ request.form.networks_select }}">
+
+                    <input type="hidden" name="form_type" value="download_form">
+
+                    <!-- Submit Button -->
+                    <div class="section">
+                        <button class="btn btn-primary" type="submit">Download</button>
+                    </div>
+
+                    <!--Alert for success message-->
+                    {% if success %}
+                    <div class="alert alert--success" id="success-alert">
+                        <div class="alert__message">Successfully Downloaded Template.</div>
+                    </div>
+
+                    <script>
+                        // Get a reference to the alert element
+                        const successAlert = document.getElementById('success-alert');
+
+                        // Function to hide the alert after a specified delay (in milliseconds)
+                        function hideAlert() { successAlert.style.display = 'none';}
+                        successAlert.style.display = 'block';
+
+                        // Set a timeout to hide the alert
+                        setTimeout(hideAlert, 10000); // Adjust the delay as needed
+                    </script>
+                    {% endif %}
+
+                    <!--Alert for error message-->
+                    {% if error %}
+                    <div class="alert alert--danger">
+                        <span class="icon-attention"></span>
+                        <span class="alert__message">{{ errormessage }}</span>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+
+<!-- JavaScript code -->
+<script>
+
+$(document).ready( function () {
+    $('#l3OutboundTable').DataTable({
+        createdRow: function(row, data, dataIndex) {
+            // Add a class or style to the leftmost cell in each row
+            $(row).find('td:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+        },
+        headerCallback: function(thead, data, start, end, display) {
+            // Add a class or style to the header cell of the leftmost column
+            $(thead).find('th:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+        }
+    });
+    $('#l7Table').DataTable({
+        columnDefs: [
+            { width: '33%', targets: 0 },
+            { width: '33%', targets: 1 },
+            { width: '34%', targets: 2 }
+        ],
+        createdRow: function(row, data, dataIndex) {
+            // Add a class or style to the leftmost cell in each row
+            $(row).find('td:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+        },
+        headerCallback: function(thead, data, start, end, display) {
+            // Add a class or style to the header cell of the leftmost column
+            $(thead).find('th:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+        }
+    });
+    $('#catBlocking').DataTable({
+        columnDefs: [
+            { width: '50%', targets: 0 },
+            { width: '50%', targets: 1 },
+        ],
+        createdRow: function(row, data, dataIndex) {
+            // Add a class or style to the leftmost cell in each row
+            $(row).find('td:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+        },
+        headerCallback: function(thead, data, start, end, display) {
+            // Add a class or style to the header cell of the leftmost column
+            $(thead).find('th:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+        }
+    });
+    $('#urlFiltering').DataTable({
+        columnDefs: [
+            { width: '50%', targets: 0 },
+            { width: '50%', targets: 1 },
+        ],
+        createdRow: function(row, data, dataIndex) {
+            // Add a class or style to the leftmost cell in each row
+            $(row).find('td:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+        },
+        headerCallback: function(thead, data, start, end, display) {
+            // Add a class or style to the header cell of the leftmost column
+            $(thead).find('th:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+        }
+    });
+} );
+
+</script>
+
+{% endblock %}

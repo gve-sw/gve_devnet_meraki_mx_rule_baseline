@@ -1,0 +1,211 @@
+{% extends "masterPage.html" %}
+
+{% block content %}
+<div class="container-fluid base-margin-top">
+    <h5 class="display-5">Deploy Template(s)</h5>
+    <hr>
+
+    <div class="section">
+        <div class="responsive-table">
+            <table class="table table--lined" id="template_table" >
+                <thead>
+                    <tr>
+                        <th>
+                            <label class="checkbox">
+                                <input type="checkbox" id="selectAllCheckbox">
+                                <span class="checkbox__input"></span>
+                            </label>
+                        </th>
+                        <th>Organization Name</th>
+                        <th>Network Name</th>
+                        <th>Current Baseline Template</th>
+                        <th>Current Exception Template</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for network in networks %}
+                        <tr>
+                            <td>
+                                <label class="checkbox">
+                                    <input type="checkbox">
+                                    <span class="checkbox__input"></span>
+                                </label>
+                            </td>
+                            <td>{{network.org_name}}</td>
+                            <td>{{network.net_name}}</td>
+                            <td>{{network.base_template}}</td>
+                            <td>{{network.existing_exception_template}}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="section">
+        <!-- Button area-->
+        <div class="row">
+            <div class="col-md-2">
+                <button id="deployButton" class="btn btn-primary" type="submit">Deploy</button>
+            </div>
+            <div class="col-lg-8" id="loading-panel"></div>
+        </div>
+
+        <!--Alert for success message-->
+        {% if success %}
+        <div class="alert alert--success" id="success-alert">
+            <div class="alert__message">Successfully Completed Deployment. Please check errors (if applicable).</div>
+        </div>
+
+        <script>
+            // Get a reference to the alert element
+            const successAlert = document.getElementById('success-alert');
+
+            // Function to hide the alert after a specified delay (in milliseconds)
+            function hideAlert() { successAlert.style.display = 'none';}
+            successAlert.style.display = 'block';
+
+            // Set a timeout to hide the alert
+            setTimeout(hideAlert, 10000); // Adjust the delay as needed
+        </script>
+        {% endif %}
+        <!--Alert for error message (if the error list is non-empty) -->
+        {% if upload_errors|length > 0 %}
+            {% for network, errors in upload_errors.items() %}
+            <div class="alert alert--danger" id="failure-alert">
+                <span class="icon-attention"></span>
+                <div class="alert__message">
+                    <span>{{network}}</span>
+                    <hr>
+                    {% for error in errors %}
+                    <p>- {{error}}</p>
+                    {% endfor %}
+                </div>
+                <a href="javascript:;" class="alert__close icon-close"></a>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+<script>
+
+    $(document).ready(function () {
+        var table = $('#template_table').DataTable({
+            createdRow: function (row, data, dataIndex) {
+                // Add a class or style to the leftmost cell in each row
+                $(row).find('td:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+            },
+            headerCallback: function (thead, data, start, end, display) {
+                // Add a class or style to the header cell of the leftmost column
+                $(thead).find('th:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+            },
+            columnDefs: [
+                {
+                    targets: 0, // Target the first column (checkbox column)
+                    searchable: false, // Disable searching for this column
+                    orderDataType: "dom-checkbox"
+                }
+            ]
+        });
+
+        // Track the state of the "Select All" checkbox
+        var selectAllChecked = false;
+
+        // Handle click event on "Select All" checkbox
+        $('#template_table thead th input[type="checkbox"]').on('click', function () {
+            selectAllChecked = !selectAllChecked;
+            var isSearchActive = table.search() !== '';
+
+            if (isSearchActive) {
+                // If search is active, select all visible rows only
+                table.rows({ search: 'applied' }).every(function () {
+                    var checkBox = $(this.node()).find('td:eq(0) input[type="checkbox"]');
+                    checkBox.prop('checked', selectAllChecked);
+                    }
+                );
+            } else {
+                // If no search, select all rows
+                table.rows().every(function () {
+                    var checkBox = $(this.node()).find('td:eq(0) input[type="checkbox"]');
+                    checkBox.prop('checked', selectAllChecked);
+                });
+            }
+        });
+
+        $('#deployButton').on('click', function () {
+            // display loading panel
+            var html = '<div class="progressbar" data-percentage="0" id="progressBar"><div class="progressbar__fill"></div><div class="progressbar__label">0%</div></div>';
+            $('#loading-panel').html(html);
+
+            // Start checking the progress
+            updateProgressBar(0);
+            setTimeout(checkProgress, 1000);
+
+            // Gather data from all tables
+            var data = [];
+
+            $('#template_table').DataTable().rows().every(function (rowIdx, tableLoop, rowLoop) {
+                var checkBox = $(this.node()).find('td:eq(0) input[type="checkbox"]');
+
+                // Only send checked rows
+                if (checkBox.prop('checked')) {
+                    var orgName = this.data()[1]; // Assuming organization name is in the 1st column (0-indexed)
+                    var netName = this.data()[2]; // Assuming network name is in the 2nd column (0-indexed)
+                    var baseTemplate = this.data()[3]; // Assuming baseline template is in the 3rd column (0-indexed)
+                    var templateValue = this.data()[4]; // Assuming the select element is in the 4th column (0-indexed)
+
+                    data.push({
+                        orgName: orgName,
+                        netName: netName,
+                        baseTemplateValue: baseTemplate,
+                        exceptionTemplateValue: templateValue
+                    });
+                }
+            });
+
+            // Send data to the Flask route using AJAX
+            $.ajax({
+                url: '/deploy_templates',
+                type: 'POST',
+                data: {data: JSON.stringify(data)},
+                success: function(response) {
+                    // redirect to reload the page (and reflect changes)
+                    window.location.href = response.redirect_url;
+                },
+            });
+        })
+    });
+
+    // Function to update the progress bar
+    function updateProgressBar(progress) {
+        const progressBar = document.getElementById('progressBar');
+        const progressBarLabel = progressBar.querySelector('.progressbar__label');
+
+        progressBar.setAttribute('data-percentage', progress);
+        progressBarLabel.textContent = `${progress}%`;
+
+        if (progress === 100) {
+            // If progress is 100%, wait for a couple of seconds and then remove the progress bar
+            setTimeout(() => {
+                $('#loading-panel').empty();
+            }, 1000); // Adjust the timeout value as needed
+        }
+    }
+
+    // Function to make an asynchronous request and update the progress bar
+    async function checkProgress() {
+        const response = await fetch('/progress');
+        const data = await response.json();
+
+        console.log(data.progress)
+
+        updateProgressBar(data.progress);
+
+        // Continue checking progress unless it has reached 100%
+        if (data.progress < 100) {
+            setTimeout(checkProgress, 1000);
+        }
+    }
+</script>
+{%  endblock %}

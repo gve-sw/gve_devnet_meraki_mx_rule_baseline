@@ -1,0 +1,91 @@
+{% extends "masterPage.html" %}
+
+{% block content %}
+<div class="container-fluid base-margin-top">
+    <h5 class="display-5">Current Template Configurations</h5>
+    <hr>
+
+    <div class="section">
+        <!-- Organization Select Form -->
+        <div class="form-group base-margin-bottom">
+            <div class="form-group__text select">
+                <select name="organizations_select" id="organizations_select">
+                    <option disabled selected hidden value="">Please choose...</option>
+                    {% for org in org_names %}
+                    <option value="{{ org }}">
+                        {{ org }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <label for="organizations_select">Organization:</label>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="section organizations-content">
+    {% for org_nets in networks %}
+        <div class="organization-content" data-org="{{ org_nets.0.org_name }}" hidden>
+            <div class="row">
+                <!-- Middle Rail -->
+                <div class="col-md-12">
+                    <div class="section">
+                        <div class="responsive-table">
+                            <table id="{{loop.index}}-table-header" class="table table--lined" aria-label="Bordered table example">
+                                <thead>
+                                    <tr>
+                                        <th>Organization Name</th>
+                                        <th>Network Name</th>
+                                        <th>Baseline Template</th>
+                                        <th>Exception Template</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="{{network_name}}-table">
+                                    {% for net in org_nets %}
+                                    <tr>
+                                        <td>{{net.org_name}}</td>
+                                        <td>{{net.net_name}}</td>
+                                        <td>{{net.base_template}}</td>
+                                        <td>{{net.exception_template}}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- Right Rail -->
+                <div class="col-md-6">
+                    <div class="section"></div>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+
+</div>
+
+<script>
+  $(document).ready( function () {
+    {% for org_nets in networks %}
+        $('#{{loop.index}}-table-header').DataTable({
+            createdRow: function(row, data, dataIndex) {
+                // Add a class or style to the leftmost cell in each row
+                $(row).find('td:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+            },
+            headerCallback: function(thead, data, start, end, display) {
+                // Add a class or style to the header cell of the leftmost column
+                $(thead).find('th:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+            }
+        });
+    {% endfor %}
+
+    // Show content based on selected organization
+    $("#organizations_select").change(function () {
+        var selectedOrg = $(this).val();
+        $(".organization-content").hide();
+        $(".organization-content[data-org='" + selectedOrg + "']").show();
+    });
+  });
+</script>
+{%  endblock %}

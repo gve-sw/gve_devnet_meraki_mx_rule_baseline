@@ -1,0 +1,120 @@
+{% extends "masterPage.html" %}
+
+{% block content %}
+<div class="container-fluid base-margin-top">
+    <h5 class="display-5">Assign Baseline Configuration</h5>
+    <hr>
+    <div class="section">
+        <div class="responsive-table">
+            <table class="table table--lined table--wrapped" id="baseline_template_table">
+                <thead>
+                    <tr>
+                        <th class="hidden-md-down">Organization Name</th>
+                        <th class="hidden-md-down">Current Baseline Template</th>
+                        <th class="hidden-md-down">New Baseline Template</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for org in orgs %}
+                    <tr>
+                        <td class="hidden-md-down">{{ org.org_name }}</td>
+                        <td class="hidden-md-down">{{ org.existing_base_template }}</td>
+                        <td><select size="1" id="row-{{loop.index}}-template" name="row-{{loop.index}}-template">
+                                <option value=existing selected="selected">
+                                    -- Existing --
+                                </option>
+                                <option value=None>
+                                    -- None --
+                                </option>
+                            {% for file in config_files %}
+                               {% if file != org.existing_base_template %}
+                                <option value="{{file}}">
+                                    {{file}}
+                                </option>
+                            {% endif %}
+                            {% endfor %}
+                        </select></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <!-- Submit Button -->
+        <div class="section">
+            <button id="assignButton" class="btn btn-primary" type="submit">Assign</button>
+        </div>
+    </div>
+    <div class="section">
+        <!--Alert for success message-->
+        {% if success %}
+        <div class="alert alert--success" id="success-alert">
+            <div class="alert__message">Successfully Assigned Baseline Template(s).</div>
+        </div>
+
+        <script>
+            // Get a reference to the alert element
+            const successAlert = document.getElementById('success-alert');
+
+            // Function to hide the alert after a specified delay (in milliseconds)
+            function hideAlert() { successAlert.style.display = 'none';}
+            successAlert.style.display = 'block';
+
+            // Set a timeout to hide the alert after 3000 milliseconds (3 seconds)
+            setTimeout(hideAlert, 10000); // Adjust the delay as needed
+        </script>
+        {% endif %}
+    </div>
+</div>
+
+<!-- JavaScript code -->
+<script>
+
+$(document).ready( function () {
+    $('#baseline_template_table').DataTable({
+        columnDefs: [
+            {
+                orderable: false,
+                searchable: false,
+                targets: [2]
+            },
+            { width: '33%', targets: 0 },
+            { width: '33%', targets: 1 },
+            { width: '34%', targets: 2 }
+        ],
+        createdRow: function(row, data, dataIndex) {
+            // Add a class or style to the leftmost cell in each row
+            $(row).find('td:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+            $(row).find('td:eq(2)').css('padding-right', '10px'); // Adjust the padding value as needed
+        },
+        headerCallback: function(thead, data, start, end, display) {
+            // Add a class or style to the header cell of the leftmost column
+            $(thead).find('th:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+            $(thead).find('th:eq(2)').css('padding-right', '10px'); // Adjust the padding value as needed
+        }
+    });
+
+    $('#assignButton').on('click', function() {
+        // Gather data from the table
+        var data = [];
+        $('#baseline_template_table tbody tr').each(function() {
+            var orgName = $(this).find('td:eq(0)').text();
+            var templateValue = $(this).find('select').val();
+            data.push({ orgName: orgName, templateValue: templateValue });
+        });
+
+        // Send data to the Flask route using AJAX
+        $.ajax({
+            url: '/assign_baseline',
+            type: 'POST',
+            data: { data: JSON.stringify(data) },
+            success: function(response) {
+                // redirect to reload the page (and reflect changes)
+                window.location.href = response.redirect_url;
+            },
+        });
+    })
+} );
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,13 @@
+{
+  "mx_l3_outbound_firewall": {
+    "rules": []
+  },
+  "mx_l7_firewall": {
+    "rules": []
+  },
+  "mx_content_rules": {
+    "blockedUrlCategories": [],
+    "blockedUrlPatterns": [],
+    "allowedUrlPatterns": []
+  }
+}

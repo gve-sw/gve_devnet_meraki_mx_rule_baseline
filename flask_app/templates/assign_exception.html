@@ -1,0 +1,159 @@
+{% extends "masterPage.html" %}
+
+{% block content %}
+<div class="container-fluid base-margin-top">
+    <h5 class="display-5">Assign Exception Template(s)</h5>
+    <hr>
+    <div class="section">
+        <!-- Organization Select Form -->
+        <div class="form-group base-margin-bottom">
+            <div class="form-group__text select">
+                <select name="organizations_select" id="organizations_select">
+                    <option disabled selected hidden value="">Please choose...</option>
+                    {% for org in org_names %}
+                    <option value="{{ org }}">
+                        {{ org }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <label for="organizations_select">Organization:</label>
+            </div>
+        </div>
+    </div>
+    <div class="section organizations-content">
+    {% for org_nets in networks %}
+        <div class="organization-content" data-org="{{ org_nets.0.org_name }}" hidden>
+            <div class="responsive-table">
+                <table id="{{loop.index}}-table-header" class="table table--lined"
+                       aria-label="Bordered table example">
+                    <thead>
+                    <tr>
+                        <th>Organization Name</th>
+                        <th>Network Name</th>
+                        <th>Baseline Template</th>
+                        <th>Current Exception Template</th>
+                        <th>Exception Template</th>
+                    </tr>
+                    </thead>
+                    <tbody id="{{network_name}}-table">
+                    {% for net in org_nets %}
+                    <tr>
+                        <td>{{net.org_name}}</td>
+                        <td>{{net.net_name}}</td>
+                        <td>{{net.base_template}}</td>
+                        <td>{{net.existing_exception_template}}</td>
+                        <td><select size="1" id="row-{{loop.index}}-template"
+                                    name="row-{{loop.index}}-template">
+                            <option value=existing selected="selected">
+                                -- Existing --
+                            </option>
+                            <option value=None>
+                                -- None --
+                            </option>
+                            {% for file in config_files %}
+                            {% if file != net.base_template%}
+                            <option value="{{file}}">
+                                {{file}}
+                            </option>
+                            {% endif %}
+                            {% endfor %}
+                        </select></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            </div>
+    {% endfor %}
+    </div>
+    <div class="section">
+        <!-- Button area-->
+        <button id="assignButton" class="btn btn-primary" type="submit">Assign (All)</button>
+
+        <!--Alert for success message-->
+        {% if success %}
+        <div class="alert alert--success dbl-margin-top" id="success-alert">
+            <div class="alert__message">Successfully Assigned Exception Template(s).</div>
+        </div>
+
+        <script>
+            // Get a reference to the alert element
+            const successAlert = document.getElementById('success-alert');
+
+            // Function to hide the alert after a specified delay (in milliseconds)
+            function hideAlert() { successAlert.style.display = 'none';}
+            successAlert.style.display = 'block';
+
+            // Set a timeout to hide the alert
+            setTimeout(hideAlert, 10000); // Adjust the delay as needed
+        </script>
+
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        {% for org_nets in networks %}
+        $('#{{loop.index}}-table-header').DataTable({
+            columnDefs: [
+                {
+                    orderable: false,
+                    searchable: false,
+                    targets: [4]
+                }
+            ],
+            createdRow: function (row, data, dataIndex) {
+                // Add a class or style to the leftmost cell in each row
+                $(row).find('td:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+            },
+            headerCallback: function (thead, data, start, end, display) {
+                // Add a class or style to the header cell of the leftmost column
+                $(thead).find('th:eq(0)').css('padding-left', '10px'); // Adjust the padding value as needed
+            }
+        });
+        {% endfor %}
+
+        // Show content based on selected organization
+        $("#organizations_select").change(function () {
+        var selectedOrg = $(this).val();
+        $(".organization-content").hide();
+        $(".organization-content[data-org='" + selectedOrg + "']").show();
+    });
+    });
+
+    $('#assignButton').on('click', function () {
+        // Gather data from all tables
+        var data = [];
+
+        $('.responsive-table table').each(function () {
+            var table = $(this).DataTable();
+            table.rows().every(function (rowIdx, tableLoop, rowLoop) {
+                var orgName = this.data()[0]; // Assuming organization name is in the 1st column (0-indexed)
+                var netName = this.data()[1]; // Assuming network name is in the 2nd column (0-indexed)
+                var baseTemplate = this.data()[2]; // Assuming baseline template is in the 3rd column (0-indexed)
+                var templateValue = $(this.node()).find('select').prop('value'); // Assuming the select element is in the 4th column (0-indexed)
+
+                data.push({
+                    orgName: orgName,
+                    netName: netName,
+                    baseTemplateValue: baseTemplate,
+                    exceptionTemplateValue: templateValue
+                });
+            });
+        });
+
+        // Send data to the Flask route using AJAX
+        $.ajax({
+            url: '/assign_exception',
+            type: 'POST',
+            data: {data: JSON.stringify(data)},
+            success: function(response) {
+                // redirect to reload the page (and reflect changes)
+                window.location.href = response.redirect_url;
+            },
+        });
+    })
+</script>
+{%  endblock %}
