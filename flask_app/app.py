@@ -79,55 +79,93 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
-## One time actions ##
-
-# Build drop down menus for organization and network selection, mapping or orgs/networks to id
-organizations = dashboard.organizations.getOrganizations()
-sorted_organizations = sorted(organizations, key=lambda x: x['name'])
-
-# Connection to DB (one-time)
-conn_one_time = db.create_connection(app.config['DATABASE'])
-
 org_to_id = {}
 network_to_id = {}
-DROPDOWN_CONTENT = []
-for organization in sorted_organizations:
-    # Add Org to Base Templates DB Table (if not present already)
-    db.add_template(conn_one_time, 'base', organization['id'], None)
-    org_data = {'orgaid': organization['id'], 'organame': organization['name']}
-
-    try:
-        networks = dashboard.organizations.getOrganizationNetworks(organization['id'], total_pages='all')
-
-        network_data = []
-        network_ids = []
-        for network in networks:
-            # Filter for networks with appliance (MX) only
-            if 'appliance' in network['productTypes']:
-                # Add Network to Exception Template DB Table (if not present already)
-                db.add_template(conn_one_time, 'exception', network['id'], None)
-
-                network_data.append({'networkid': network['id'], 'networkname': network['name']})
-                network_ids.append(network['id'])
-
-                # Add new entries to data structures
-                network_to_id[network['name']] = network['id']
-
-        # Associate networks with their org
-        org_data['networks'] = network_data
-
-        # Add new entries to data structures
-        DROPDOWN_CONTENT.append(org_data)
-        org_to_id[organization['name']] = {'id': organization['id'], 'network_ids': network_ids}
-
-    except Exception as e:
-        logger.error(f"Error retrieving networks for organization ID {organization['id']}: {e}")
-
-# Close DB connection (one-time)
-db.close_connection(conn_one_time)
 
 
 # Methods
+@cache.memoize(timeout=300)  # Cache the result for 5 minutes
+def dropdown():
+    """
+    Return Drop Down Content (wrapped in method to support new networks and organizations) - cached
+    :return: A list of orgs and the corresponding networks
+    """
+    dropdown_content = []
+
+    # Build drop down menus for organization and network selection, mapping or orgs/networks to id
+    organizations = dashboard.organizations.getOrganizations()
+    sorted_organizations = sorted(organizations, key=lambda x: x['name'])
+
+    # Connection to DB (one-time)
+    conn = db.create_connection(app.config['DATABASE'])
+
+    # Get the table of base templates and exception templates
+    base_templates = db.query_all_base_templates(conn)
+    base_templates = {item[0]: item[1] for item in base_templates}
+
+    exception_templates = db.query_all_exception_templates(conn)
+    exception_templates = {item[0]: item[1] for item in exception_templates}
+
+    # Track all the current orgs and networks (used to remove stale data in DB)
+    current_org_ids = []
+    current_network_ids = []
+    for organization in sorted_organizations:
+        # Add Org to Base Templates DB Table (if not present already)
+        db.add_template(conn, 'base', organization['id'], None)
+        org_data = {'orgaid': organization['id'], 'organame': organization['name']}
+        current_org_ids.append(organization['id'])
+
+        try:
+            networks = dashboard.organizations.getOrganizationNetworks(organization['id'], total_pages='all')
+
+            network_data = []
+            network_ids = []
+            for network in networks:
+                # Filter for networks with appliance (MX) only
+                if 'appliance' in network['productTypes']:
+                    # Add Network to Exception Template DB Table (if not present already)
+                    db.add_template(conn, 'exception', network['id'], None)
+
+                    network_data.append({'networkid': network['id'], 'networkname': network['name']})
+                    network_ids.append(network['id'])
+                    current_network_ids.append(network['id'])
+
+                    # Add new entries to data structures
+                    network_to_id[network['name']] = network['id']
+
+            # Associate networks with their org
+            org_data['networks'] = network_data
+
+            # Add new entries to data structures
+            dropdown_content.append(org_data)
+            org_to_id[organization['name']] = {'id': organization['id'], 'network_ids': network_ids}
+
+        except Exception as e:
+            logger.error(f"Error retrieving networks for organization ID {organization['id']}: {e}")
+
+    # Clean up any orgs or networks still in db but not in the current list
+    for org_id in base_templates:
+        if org_id not in current_org_ids:
+            db.delete_template(conn, 'base', org_id)
+
+            # Remove from other dicts as well
+            if org_id in org_to_id:
+                del org_to_id[org_id]
+
+    for net_id in exception_templates:
+        if net_id not in current_network_ids:
+            db.delete_template(conn, 'exception', net_id)
+
+            # Remove from other dicts as well
+            if net_id in network_to_id:
+                del network_to_id[net_id]
+
+    # Close DB connection (one-time)
+    db.close_connection(conn)
+
+    return dropdown_content
+
+
 def getSystemTimeAndLocation():
     """
     Return location and time of accessing device (used on all webpage footers)
@@ -195,7 +233,7 @@ def thread_wrapper(current_config, progress_inc, baseline_filename, exception_fi
             upload_errors[error['network']] = [error['error']]
 
 
-@cache.memoize(timeout=120)  # Cache the result for 2 minutes
+@cache.memoize(timeout=60)  # Cache the result for 1 minute
 def get_mx_config_information(selected_organization, selected_network):
     """
     Get the current MX Security configs for the selected Network (wrapped in a separate method to support caching results)
@@ -231,6 +269,8 @@ def index():
     """
     logger.info(f"Main Index {request.method} Request:")
 
+    dropdown_content = dropdown()
+
     # Get DB connection
     conn = get_conn()
 
@@ -246,7 +286,7 @@ def index():
 
     # Build a display list for each orgs networks (show network name, base template, exception template)
     network_displays = []
-    for org in DROPDOWN_CONTENT:
+    for org in dropdown_content:
         org_networks = []
         for network in org['networks']:
             network_display = {'id': network['networkid'], 'org_name': org['organame'],
@@ -270,6 +310,8 @@ def download_baseline():
     either a baseline or exception template for other networks)
     """
     logger.info(f'Download Baseline {request.method} Request:')
+
+    dropdown_content = dropdown()
 
     # If success is present (during redirect after successfully updating SSID), extract URL param
     if request.args.get('success'):
@@ -306,7 +348,7 @@ def download_baseline():
             return redirect(url_for('download_baseline', success=True))
 
     # Render page
-    return render_template('download_baseline.html', hiddenLinks=False, dropdown_content=DROPDOWN_CONTENT,
+    return render_template('download_baseline.html', hiddenLinks=False, dropdown_content=dropdown_content,
                            selected_elements=selected_elements, current_config=current_config, success=success,
                            timeAndLocation=getSystemTimeAndLocation(), tracked_settings=config.tracked_settings)
 
@@ -317,6 +359,9 @@ def assign_baseline():
     Assign a baseline template to an organization (assigned at org level, maintained in sqlite db)
     """
     logger.info(f'Assign Baseline Template {request.method} Request:')
+
+    # Unused, but triggers adding any new network or org to the dictionary
+    dropdown_content = dropdown()
 
     # Get DB connection
     conn = get_conn()
@@ -399,6 +444,8 @@ def assign_exception():
     """
     logger.info(f'Assign Exception {request.method} Request:')
 
+    dropdown_content = dropdown()
+
     # Get DB connection
     conn = get_conn()
 
@@ -425,7 +472,7 @@ def assign_exception():
 
     # Build a display list for each orgs networks (show network name, base template, exception template)
     network_displays = []
-    for org in DROPDOWN_CONTENT:
+    for org in dropdown_content:
         org_networks = []
         for network in org['networks']:
             network_display = {'id': network['networkid'], 'org_name': org['organame'],
@@ -484,6 +531,8 @@ def deploy_templates():
     global progress, upload_errors
     logger.info(f'Deploy Templates {request.method} Request:')
 
+    dropdown_content = dropdown()
+
     # Get DB connection
     conn = get_conn()
 
@@ -510,7 +559,7 @@ def deploy_templates():
 
     # Build a display list for each orgs networks (show network name, base template, exception template)
     network_displays = []
-    for org in DROPDOWN_CONTENT:
+    for org in dropdown_content:
         for network in org['networks']:
             network_display = {'id': network['networkid'], 'org_name': org['organame'],
                                'net_name': network['networkname'],
@@ -572,6 +621,10 @@ def deploy_templates():
                 # Upload config to network, spawn a thread that calls the upload method for each network
                 current_config = MerakiMXConfig(org_to_id[template_selection['orgName']]['id'],
                                                 network_to_id[template_selection['netName']], logger)
+
+                # If name is still none, there was a failure
+                if current_config.net_name is None:
+                    continue
 
                 # Spawn a background thread
                 thread = threading.Thread(target=thread_wrapper,

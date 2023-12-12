@@ -17,9 +17,14 @@ __author__ = "Trevor Maco <tmaco@cisco.com>"
 __copyright__ = "Copyright (c) 2023 Cisco and/or its affiliates."
 __license__ = "Cisco Sample Code License, Version 1.1"
 
+import os
 import sqlite3
 from pprint import pprint
 from sqlite3 import Error
+
+# Absolute Paths
+script_dir = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(script_dir, 'sqlite.db')
 
 
 def create_connection(db_file):
@@ -175,7 +180,7 @@ def update_template(conn, template_type, meraki_id, file_name):
 
 def remove_template(conn, template_type, meraki_id):
     """
-    Remove template from baseline or exception table
+    "Soft Delete" template from baseline or exception table - Set to Null
     :param conn: DB connection object
     :param template_type: The type of template (controls table selection): base, exception
     :param meraki_id: ID used to search for a template (org id for baseline table, network id for exception table)
@@ -198,6 +203,31 @@ def remove_template(conn, template_type, meraki_id):
     conn.commit()
 
 
+def delete_template(conn, template_type, meraki_id):
+    """
+    Hard Delete  template from baseline or exception table
+    :param conn: DB connection object
+    :param template_type: The type of template (controls table selection): base, exception
+    :param meraki_id: ID used to search for a template (org id for baseline table, network id for exception table)
+    """
+    c = conn.cursor()
+
+    if template_type == "base":
+        # Base template case
+        table = "base_templates"
+
+        delete_statement = f"DELETE FROM {table} WHERE org_id = ?"
+        c.execute(delete_statement, (meraki_id,))
+    elif template_type == "exception":
+        # Exception template case
+        table = "exception_templates"
+
+        delete_statement = f"DELETE FROM {table} WHERE net_id = ?"
+        c.execute(delete_statement, (meraki_id,))
+
+    conn.commit()
+
+
 def close_connection(conn):
     """
     Close DB Connection
@@ -209,7 +239,7 @@ def close_connection(conn):
 # If running this python file, create connection to database, create tables, and print out the results of queries of
 # every table
 if __name__ == "__main__":
-    conn = create_connection("sqlite.db")
+    conn = create_connection(db_path)
     create_tables(conn)
     pprint(query_all_base_templates(conn))
     pprint(query_all_exception_templates(conn))

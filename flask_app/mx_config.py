@@ -110,8 +110,11 @@ class MerakiMXConfig:
         """
         Get network name (useful for webpage table displays)
         """
-        network = dashboard.networks.getNetwork(self.net_id)
-        self.net_name = network['name']
+        try:
+            network = dashboard.networks.getNetwork(self.net_id)
+            self.net_name = network['name']
+        except Exception as e:
+            self.upload_errors.append({'network': self.net_name, 'error': str(e)})
 
     def get_l3_out_rules(self):
         """
