@@ -2,14 +2,15 @@ version: "3.5"
 
 services:
   gve_devnet_meraki_mx_security_baseline:
-#    image: ghcr.io/gve-sw/gve_devnet_meraki_mx_security_baseline:latest
-    build: .
+    image: ghcr.io/gve-sw/gve_devnet_meraki_mx_security_baseline:latest
+#    build: .
     container_name: gve_devnet_meraki_mx_security_baseline
     environment:
       - MERAKI_API_KEY=${MERAKI_API_KEY}
     ports:
       - "5000:5000"
     volumes:
+      - ./flask_app/config.py:/app/config.py
       - ./flask_app/logs:/app/logs
       - ./flask_app/mx_configs:/app/mx_configs
       - ./flask_app/sqlite.db:/app/sqlite.db
