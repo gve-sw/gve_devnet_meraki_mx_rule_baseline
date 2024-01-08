@@ -198,9 +198,10 @@
         const response = await fetch('/progress');
         const data = await response.json();
 
-        console.log(data.progress)
+        // Floor the progress value
+        const flooredProgress = Math.floor(data.progress);
 
-        updateProgressBar(data.progress);
+        updateProgressBar(flooredProgress);
 
         // Continue checking progress unless it has reached 100%
         if (data.progress < 100) {

@@ -583,8 +583,8 @@ def deploy_templates():
         # Convert JSON string to Python list of dictionaries
         template_selections = json.loads(data)
 
-        # Calculate progress increment (100 / length floored)
-        progress_inc = 100 // len(template_selections)
+        # Calculate progress increment
+        progress_inc = 100 / float(len(template_selections))
 
         threads = []
         # Iterate through table selections for baseline and exception templates
