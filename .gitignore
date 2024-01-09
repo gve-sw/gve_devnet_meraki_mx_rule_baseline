@@ -11,4 +11,4 @@ __pycache__
 .DS_Store
 
 # DB File
-flask_app/sqlite.db
+flask_app/db/sqlite.db

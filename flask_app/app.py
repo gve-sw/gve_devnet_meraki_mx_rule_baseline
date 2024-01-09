@@ -37,7 +37,7 @@ from mx_config import MerakiMXConfig
 
 # Absolute Paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
-db_path = os.path.join(script_dir, 'sqlite.db')
+db_path = os.path.join(script_dir, 'db/sqlite.db')
 configs_path = os.path.join(script_dir, 'mx_configs')
 logs_path = os.path.join(script_dir, 'logs')
 

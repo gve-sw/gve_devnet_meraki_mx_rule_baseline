@@ -24,7 +24,7 @@ from sqlite3 import Error
 
 # Absolute Paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
-db_path = os.path.join(script_dir, 'sqlite.db')
+db_path = os.path.join(script_dir, 'db/sqlite.db')
 
 
 def create_connection(db_file):
